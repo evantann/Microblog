@@ -176,7 +176,7 @@ let users = [
 // Function to find a user by username
 function findUserByUsername(username) {
     // TODO: Return user object if found, otherwise return undefined
-    if (users.find())
+    // if (users.find())
 }
 
 // Function to find a user by user ID
