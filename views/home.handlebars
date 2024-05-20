@@ -7,9 +7,12 @@
         <!-- show the create post form when logged in -->
         <section class="post-form">
             <!-- make a header here -->
+            <h2>Create a new post</h2>
             <form action="/posts" method="POST">
                 <!-- title input field name = "title" -->
                 <!-- text area input field name = "content" -->
+                <input type="text" name="title" id="title", placeholder="title"><br><br>
+                <input type="text" name="content" id="content", placeholder="content">
 
                 <div class="form-actions">
                     <button type="button" class="emoji-button" onclick="toggleEmojiPanel()">😀</button>
@@ -20,6 +23,8 @@
             <div id="emoji-container" class="emoji-panel" style="display: none;">
                 <!-- input field for the emoji search, use oninput="searchEmojis() -->
                 <!-- a div, id = "emoji-grid" -->
+                <input type="text" id="emoji-search" oninput="searchEmojis()" placeholder="Search emojis...">
+                <div id="emoji-grid"></div>
             </div>
         </section>
     {{/if}}

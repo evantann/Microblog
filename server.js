@@ -78,7 +78,7 @@ app.use((req, res, next) => {
   res.locals.appName = "MicroBlog";
   res.locals.copyrightYear = 2024;
   res.locals.postNeoType = "Post";
-  res.locals.loggedIn = req.session.loggedIn || false;
+  res.locals.loggedIn = req.session.loggedIn || false; // res.locals allows these variables to be used in templates
   res.locals.userId = req.session.userId || "";
   next();
 });
@@ -95,11 +95,11 @@ app.use(express.json()); // Parse JSON bodies (as sent by API clients)
 // We pass the posts and user variables into the home
 // template
 //
-  app.get("/", (req, res) => {
-    const posts = getPosts();
-    const user = getCurrentUser(req) || {};
-    res.render("home", { posts, user });
-  });
+app.get("/", (req, res) => {
+  const posts = getPosts();
+  const user = getCurrentUser(req) || {};
+  res.render("home", { posts, user });
+});
 
 // Register GET route is used for error response from registration
 //
@@ -121,14 +121,18 @@ app.get("/error", (req, res) => {
 
 // Additional routes that you must implement
 
-app.get("/post/:id", (req, res) => {
-  // TODO: Render post detail page
-});
 app.post("/posts", (req, res) => {
   // TODO: Add a new post and redirect to home
+  const title = req.body.title;
+  const content = req.body.content;
+  const user = getCurrentUser(req);
+
+  addPost(title, content, user);
+  res.redirect("/");
 });
 app.post("/like/:id", (req, res) => {
   // TODO: Update post likes
+  updatePostLikes(req, res);
 });
 app.get("/profile", isAuthenticated, (req, res) => {
   // TODO: Render profile page
@@ -150,6 +154,18 @@ app.get("/logout", (req, res) => {
 });
 app.post("/delete/:id", isAuthenticated, (req, res) => {
   // TODO: Delete a post if the current user is the owner
+
+  const postId = req.params.id;
+  const post = findPostById(postId);
+  const userId = req.session.userId;
+  const user = findUserById(userId);
+
+  if (user.username == post.username) {
+    posts = posts.filter((post) => post.id != postId);
+    res.status(200);
+  } else {
+    res.status(401).send("Unauthorized to delete post");
+  }
 });
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -175,7 +191,7 @@ let posts = [
     likes: 0,
   },
   {
-    id: 3,
+    id: 2,
     title: "Another Post",
     content: "This is another sample post.",
     username: "AnotherUser",
@@ -187,7 +203,8 @@ let users = [
   {
     id: 1,
     username: "SampleUser",
-    avatar_url: "/Users/evant/Documents/School/ECS 162/scaffold/views/partials/example.jpg",
+    avatar_url:
+      "/Users/evant/Documents/School/ECS 162/scaffold/views/partials/example.jpg",
     memberSince: "2024-01-01 08:00",
   },
   {
@@ -201,13 +218,17 @@ let users = [
 // Function to find a user by username
 function findUserByUsername(username) {
   // TODO: Return user object if found, otherwise return undefined
-  return users.find((user) => user.username === username);
+  return users.find((user) => user.username == username);
 }
 
 // Function to find a user by user ID
 function findUserById(userId) {
   // TODO: Return user object if found, otherwise return undefined
-  return users.find((user) => user.id === userId);
+  return users.find((user) => user.id == userId);
+}
+
+function findPostById(postId) {
+  return posts.find((post) => post.id == postId);
 }
 
 // Function to add a new user
@@ -219,11 +240,11 @@ function addUser(username) {
     avatar_url: undefined,
     memberSince: new Date().toISOString(),
   });
+  console.log(users);
 }
 
 // Middleware to check if user is authenticated
 function isAuthenticated(req, res, next) {
-  console.log(req.session.userId);
   if (req.session.userId) {
     next();
   } else {
@@ -252,17 +273,24 @@ function loginUser(req, res) {
   if (user) {
     req.session.userId = user.id;
     req.session.loggedIn = true;
-    res.redirect('/');
+    res.redirect("/");
   } else {
-    res.redirect('/login?error=Invalid+username');
+    res.redirect("/login?error=Invalid+username");
   }
 }
 
 // Function to logout a user
 function logoutUser(req, res) {
   // TODO: Destroy session and redirect appropriately
-  req.sesssion.destroy();
-  res.redirect('/login');
+  req.sesssion.destroy((err) => {
+    if (error) {
+      console.error("Error destroying session: ", err);
+      res.redirect("/error");
+    } else {
+      res.redirect("/");
+    }
+  });
+  res.redirect("/login");
 }
 
 // Function to render the profile page
@@ -273,6 +301,16 @@ function renderProfile(req, res) {
 // Function to update post likes
 function updatePostLikes(req, res) {
   // TODO: Increment post likes if conditions are met
+  if (!req.session.loggedIn) {
+    res.status(401).send("Login required to like posts");
+    return;
+  }
+
+  const postId = req.params.id;
+  const post = findPostById(postId);
+
+  post.likes++;
+  res.status(200).json({ postLikes: post.likes });
 }
 
 // Function to handle avatar generation and serving
@@ -283,8 +321,8 @@ function handleAvatar(req, res) {
 // Function to get the current user from session
 function getCurrentUser(req) {
   // TODO: Return the user object if the session user ID matches
-    const userId = req.session.userId;
-    return findUserById(userId);
+  const userId = req.session.userId;
+  return findUserById(userId);
 }
 
 // Function to get all posts, sorted by latest first
@@ -295,6 +333,14 @@ function getPosts() {
 // Function to add a new post
 function addPost(title, content, user) {
   // TODO: Create a new post object and add to posts array
+  posts.push({
+    id: posts.length + 1,
+    title: title,
+    content: content,
+    username: user.username,
+    timestamp: new Date().toISOString(),
+    likes: 0,
+  });
 }
 
 // Function to generate an image avatar

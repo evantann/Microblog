@@ -1,20 +1,18 @@
 {{! Partial for a single post }}
 <div class="post">
     <div class="post-avatar">
-        <p>{{this.id}}</p>
-        <p>{{id}}</p>
         <!-- the user's avatar -->
         <img src="{{avatar.url_url}}" alt="User Avatar">
     </div>
     <div class="post-content preserve-newlines">
         <!-- the post -->
-        <p>{{this.content}}</p>
+        <p>{{content}}{{username}}</p>
         <div class="post-status-bar">
             <!-- everything that is shown in the status bar -->
             <!-- Heart = ♥ -->
             <!-- font awesome  trashcan = <i class="fas fa-trash-alt"> </i>-->
-            <button class="like-button" data-id="{{this._id}}" onclick="handleLikeClick(event)">♥ Like</button>
-            <button class="delete-button" data-id="{{this._id}}" onclick="handleDeleteClick(event)">
+            <button class="like-button" data-id="{{this.id}}"><span class="like-count">{{likes}}</span> ♥ Like</button>
+            <button class="delete-button" data-id="{{this.id}}">
                 <i class="fas fa-trash-alt"></i> Delete
             </button>
         </div>        
@@ -22,17 +20,64 @@
 </div>
 <script>
 
-    function handleLikeClick(event) {
+    document.addEventListener('DOMContentLoaded', () => {
+        const likeButtons = document.querySelectorAll('.like-button');
+        likeButtons.forEach(button => {
+            button.addEventListener('click', handleLikeClick);
+        });
+
+        const deleteButtons = document.querySelectorAll('.delete-button');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', handleDeleteClick);
+        });
+    });
+
+    async function handleLikeClick(event) {
         const postId = event.target.getAttribute('data-id');
 
-        // you might want to "fetch" something...        
+        try {
+            const response = await fetch(`/like/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const responseData = await response.json();
+                const postLikes = responseData.postLikes;
+                const likeCount = event.target.querySelector('.like-count');
+                likeCount.textContent = postLikes;
+            } else {
+                const responseMsg = await response.text();
+                console.error(responseMsg);
+            }
+        } catch (error) {
+            console.error('Error liking post:', error)
+        }     
     }
 
-    function handleDeleteClick(event) {
-        const buttonElement = event.target.closest('.delete-button');
-        const postId = buttonElement.getAttribute('data-id');        
-
-        // you might want to "fetch" something...        
+    async function handleDeleteClick(event) {
+        const buttonElement = event.target.closest('.delete-button'); // closest enures that the button is selected and not <i> when clicked
+        const postId = buttonElement.getAttribute('data-id');    
         
+        try {
+            const response = await fetch(`/delete/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const postElement = buttonElement.closest('.post');
+                postElement.remove();
+            } else {
+                const responseMsg = await response.text();
+                console.error(responseMsg);
+            }
+        } catch (error) {
+            console.error('Error deleting post:', error);
+        }
     }    
 </script>
