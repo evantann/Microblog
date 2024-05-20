@@ -31,11 +31,12 @@
         <ul>
             {{#each posts}}
                 <!-- you have to pass the user in to posts and this is the syntax -->
-                {{> post this user=../user}}            
+                    <p>{{> post this user=../user}}</p>  
             {{/each}}
         </ul>
         {{else}}
             <!-- no posts, oh no, what now? -->
+            <p>No posts available</p>
         {{/if}}
     </section>
 </section>

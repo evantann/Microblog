@@ -1,14 +1,22 @@
 {{! Partial for a single post }}
 <div class="post">
     <div class="post-avatar">
+        <p>{{this.id}}</p>
+        <p>{{id}}</p>
         <!-- the user's avatar -->
+        <img src="{{avatar.url_url}}" alt="User Avatar">
     </div>
     <div class="post-content preserve-newlines">
         <!-- the post -->
+        <p>{{this.content}}</p>
         <div class="post-status-bar">
             <!-- everything that is shown in the status bar -->
             <!-- Heart = ♥ -->
             <!-- font awesome  trashcan = <i class="fas fa-trash-alt"> </i>-->
+            <button class="like-button" data-id="{{this._id}}" onclick="handleLikeClick(event)">♥ Like</button>
+            <button class="delete-button" data-id="{{this._id}}" onclick="handleDeleteClick(event)">
+                <i class="fas fa-trash-alt"></i> Delete
+            </button>
         </div>        
     </div>
 </div>

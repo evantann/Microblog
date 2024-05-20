@@ -95,11 +95,11 @@ app.use(express.json()); // Parse JSON bodies (as sent by API clients)
 // We pass the posts and user variables into the home
 // template
 //
-app.get("/", (req, res) => {
-  const posts = getPosts();
-  const user = getCurrentUser(req) || {};
-  res.render("home", { posts, user });
-});
+  app.get("/", (req, res) => {
+    const posts = getPosts();
+    const user = getCurrentUser(req) || {};
+    res.render("home", { posts, user });
+  });
 
 // Register GET route is used for error response from registration
 //
@@ -142,9 +142,11 @@ app.post("/register", (req, res) => {
 });
 app.post("/login", (req, res) => {
   // TODO: Login a user
+  loginUser(req, res);
 });
 app.get("/logout", (req, res) => {
   // TODO: Logout the user
+  logoutUser(req, res);
 });
 app.post("/delete/:id", isAuthenticated, (req, res) => {
   // TODO: Delete a post if the current user is the owner
@@ -173,7 +175,7 @@ let posts = [
     likes: 0,
   },
   {
-    id: 2,
+    id: 3,
     title: "Another Post",
     content: "This is another sample post.",
     username: "AnotherUser",
@@ -185,7 +187,7 @@ let users = [
   {
     id: 1,
     username: "SampleUser",
-    avatar_url: undefined,
+    avatar_url: "/Users/evant/Documents/School/ECS 162/scaffold/views/partials/example.jpg",
     memberSince: "2024-01-01 08:00",
   },
   {
@@ -205,6 +207,7 @@ function findUserByUsername(username) {
 // Function to find a user by user ID
 function findUserById(userId) {
   // TODO: Return user object if found, otherwise return undefined
+  return users.find((user) => user.id === userId);
 }
 
 // Function to add a new user
@@ -216,7 +219,6 @@ function addUser(username) {
     avatar_url: undefined,
     memberSince: new Date().toISOString(),
   });
-  console.log(users);
 }
 
 // Middleware to check if user is authenticated
@@ -233,7 +235,6 @@ function isAuthenticated(req, res, next) {
 function registerUser(req, res) {
   // TODO: Register a new user and redirect appropriately
   const username = req.body.username;
-  console.log("Attempting to register: ", username);
   if (findUserByUsername(username)) {
     res.redirect("/register?error=Username+already+exists");
   } else {
@@ -245,11 +246,23 @@ function registerUser(req, res) {
 // Function to login a user
 function loginUser(req, res) {
   // TODO: Login a user and redirect appropriately
+  const username = req.body.username;
+  const user = findUserByUsername(username);
+
+  if (user) {
+    req.session.userId = user.id;
+    req.session.loggedIn = true;
+    res.redirect('/');
+  } else {
+    res.redirect('/login?error=Invalid+username');
+  }
 }
 
 // Function to logout a user
 function logoutUser(req, res) {
   // TODO: Destroy session and redirect appropriately
+  req.sesssion.destroy();
+  res.redirect('/login');
 }
 
 // Function to render the profile page
@@ -270,6 +283,8 @@ function handleAvatar(req, res) {
 // Function to get the current user from session
 function getCurrentUser(req) {
   // TODO: Return the user object if the session user ID matches
+    const userId = req.session.userId;
+    return findUserById(userId);
 }
 
 // Function to get all posts, sorted by latest first
