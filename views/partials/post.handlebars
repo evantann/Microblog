@@ -2,11 +2,13 @@
 <div class="post">
     <div class="post-avatar">
         <!-- the user's avatar -->
-        <img src="{{avatar.url_url}}" alt="User Avatar">
+        <img src="/avatar/{{user.username}}" alt="User Avatar">
     </div>
     <div class="post-content preserve-newlines">
         <!-- the post -->
-        <p>{{content}}{{username}}</p>
+        <p>{{username}}</p>
+        <p>Title: {{title}}</p>
+        <p>{{content}}</p>
         <div class="post-status-bar">
             <!-- everything that is shown in the status bar -->
             <!-- Heart = ♥ -->
