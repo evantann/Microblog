@@ -1,7 +1,8 @@
 const express = require("express");
 const expressHandlebars = require("express-handlebars");
 const session = require("express-session");
-const canvas = require("canvas");
+const {createCanvas} = require("canvas");
+const dotenv = require("dotenv");
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Configuration and Setup
@@ -9,6 +10,8 @@ const canvas = require("canvas");
 
 const app = express();
 const PORT = 3000;
+
+dotenv.config();
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -75,11 +78,12 @@ app.use(
 // should be used in your template files.
 //
 app.use((req, res, next) => {
-  res.locals.appName = "MicroBlog";
+  res.locals.appName = "Portfolio";
   res.locals.copyrightYear = 2024;
   res.locals.postNeoType = "Post";
   res.locals.loggedIn = req.session.loggedIn || false; // res.locals allows these variables to be used in templates
   res.locals.userId = req.session.userId || "";
+  res.locals.accessToken = process.env.ACCESS_TOKEN
   next();
 });
 
@@ -136,9 +140,11 @@ app.post("/like/:id", (req, res) => {
 });
 app.get("/profile", isAuthenticated, (req, res) => {
   // TODO: Render profile page
+  renderProfile(req, res);
 });
 app.get("/avatar/:username", (req, res) => {
   // TODO: Serve the avatar image for the user
+  handleAvatar(req, res);
 });
 app.post("/register", (req, res) => {
   // TODO: Register a new user
@@ -207,8 +213,7 @@ let users = [
   {
     id: 1,
     username: "SampleUser",
-    avatar_url:
-      "/Users/evant/Documents/School/ECS 162/scaffold/views/partials/example.jpg",
+    avatar_url: undefined,
     memberSince: "2024-01-01 08:00",
   },
   {
@@ -298,6 +303,9 @@ function logoutUser(req, res) {
 // Function to render the profile page
 function renderProfile(req, res) {
   // TODO: Fetch user posts and render the profile page
+  const user = getCurrentUser(req);
+  const userPosts = posts.filter((post) => post.username == user.username);
+  res.render("profile", { user, userPosts });
 }
 
 // Function to update post likes
@@ -318,6 +326,13 @@ function updatePostLikes(req, res) {
 // Function to handle avatar generation and serving
 function handleAvatar(req, res) {
   // TODO: Generate and serve the user's avatar image
+  const username = req.params.username;
+  const user = findUserByUsername(username);
+
+  avatarUrl = generateAvatar(user.username[0]);
+  user.avatar_url = avatarUrl;
+
+  res.send(avatarUrl);
 }
 
 // Function to get the current user from session
@@ -354,4 +369,21 @@ function generateAvatar(letter, width = 100, height = 100) {
   // 3. Draw the background color
   // 4. Draw the letter in the center
   // 5. Return the avatar as a PNG buffer
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  
+  const backgroundColor = '#3498db';
+  const textColor = '#ffffff';
+
+  ctx.fillStyle = backgroundColor;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = textColor;
+  ctx.font = `${Math.floor(height * 0.7)}px sans-serif`; // Dynamic font size based on canvas height
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.fillText(letter, width / 2, height / 2);
+
+  return canvas.toBuffer('image/png');
 }

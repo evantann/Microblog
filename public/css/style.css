@@ -1,0 +1,159 @@
+/* Reset some default browser styles */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Arial', sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f4f4f4;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #333;
+    color: #fff;
+    padding: 10px;
+    border-bottom: 3px solid #007BFF;
+}
+
+.logo {
+    display: flex;
+}
+
+.header-logo {
+    height: 50px;
+    margin-right: 20px;
+}
+
+header h1 {
+    font-size: 2rem;
+    margin: 0;
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+nav ul li {
+    margin: 0 5px;
+}
+
+nav ul li a {
+    color: #fff;
+    text-decoration: none;
+    font-size: 1rem;
+    padding: 5px 10px;
+}
+
+nav ul li:hover {
+    background-color: #007BFF;
+    border-radius: 5px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+}
+
+.header-avatar {
+    height: 40px;
+    width: 40px;
+    border-radius: 50%;
+    margin-left: 10px;
+    object-fit: cover;
+}
+
+main {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 20px auto;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    background: #333;
+    color: #fff;
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+}
+
+footer p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.post {
+    display: flex;
+    align-items: flex-start;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.post-avatar img {
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    margin-right: 15px;
+}
+
+.post-content {
+    flex: 1;
+}
+
+.post-content p {
+    margin: 0 0 10px;
+    font-size: 16px;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.post-status-bar {
+    display: flex;
+    align-items: center;
+}
+
+.post-status-bar button {
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    margin-right: 10px;
+    font-size: 14px;
+    color: #fff;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.post-status-bar button:hover {
+    background-color: #0056b3;
+}
+
+.post-status-bar .like-count {
+    margin-right: 5px;
+}
+
+.post-status-bar .delete-button {
+    background-color: #dc3545;
+}
+
+.post-status-bar .delete-button:hover {
+    background-color: #c82333;
+}
+
+.fas.fa-trash-alt {
+    margin-right: 5px;
+}

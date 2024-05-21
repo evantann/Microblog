@@ -14,7 +14,7 @@
 <body>
     <header>
         <div class="logo">
-            <img src="images/logo.png" class="header-logo">
+            <img src="images/logo.jpg" class="header-logo">
             <h1>{{{appName}}}</h1>
         </div>
         <nav>
@@ -27,11 +27,12 @@
                     <div class="user-info">
 
                         <!-- conditional rendering based on variables -->
-                        <img src="{{#if user.avatar_url}}
-                                        {{user.avatar_url}}
-                                    {{else}}
-                                        /avatar/{{user.username}}
-                                    {{/if}}" 
+                        <img src="/avatar/{{user.username}}"
+                                    {{!-- {{#if user.avatar_url}} --}}
+                                        {{!-- {{user.avatar_url}}
+                                    {{else}} --}}
+                                        {{!-- /avatar/{{user.username}} --}}
+                                    {{!-- {{/if}}"  --}}
                                     alt="User Avatar" 
                                     class="header-avatar">
                     </div>

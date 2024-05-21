@@ -64,10 +64,9 @@ function toggleEmojiPanel() {
     container.style.display = container.style.display === 'none' ? 'block' : 'none';
 
     if(container.style.display === 'block' && allEmojis.length == 0){
-        fetch('https://emoji-api.com/emojis?access_key=cd127ddcce669d990d7fdbfe8c71082b63ed7cd2')
+        fetch('https://emoji-api.com/emojis?access_key={{accessToken}}')
             .then(response => response.json())
             .then(data => {
-                console.log('Emojis fetched:', data);
                 allEmojis = data;
                 displayEmojis(allEmojis);
             })
@@ -97,19 +96,17 @@ function displayEmojis(emojis,limit=200) {
 
 function searchEmojis() {
     const searchTerm = document.getElementById('emoji-search').value.toLowerCase();
-    // array.filter takes a predicate
-    // use string.includes. 
-
-    {{!-- const filteredEmojis = allEmojis.filter(...); --}}
-    
+    const filteredEmojis = allEmojis.filter(emoji => emoji.slug.includes(searchTerm));
     displayEmojis(filteredEmojis);
 }
 
 function insertEmoji(emoji) {
-    // put an emoji on a form somehow. 
-
-    // do this when you're doing getting the emoji on the form
-    //
+    // put an emoji on a form somehow.
+    const textarea = document.getElementById('content');
+    const cursorPosition = textarea.selectionStart;
+    const content = textarea.value;
+    const newContent = content.slice(0, cursorPosition) + emoji + content.slice(cursorPosition);
+    textarea.value = newContent;
     textarea.focus();  // Keep focus on the textarea
 }
 </script>

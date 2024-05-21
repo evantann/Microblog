@@ -4,10 +4,13 @@
 <div class="profile-container">
     <div class="profile-avatar">
         <!-- Correct path for the default avatar image -->
+        <img src="/avatar/{{user.username}}" alt="User Avatar">
     </div>
     
     <section class="profile-info">
         <!-- user profile info -->
+        <h2>{{user.username}}</h2>
+        <p>Member Since: {{user.memberSince}}</p>
     </section>
 </div>
 
@@ -18,7 +21,7 @@
     <!-- you'll need to make this conditaionl and #each expression work -->
     {{#if user.posts.length}}
         <ul>
-            {{#each user.posts}}
+            {{#each userPosts}}
                 {{> post this}}
             {{/each}}
         </ul>
