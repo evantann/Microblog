@@ -152,8 +152,12 @@ app.get("/logout", (req, res) => {
   // TODO: Logout the user
   logoutUser(req, res);
 });
-app.post("/delete/:id", isAuthenticated, (req, res) => {
+app.post("/delete/:id", (req, res) => {
   // TODO: Delete a post if the current user is the owner
+  if (!req.session.loggedIn) {
+    res.status(401).send("Login required to delete posts");
+    return;
+  }
 
   const postId = req.params.id;
   const post = findPostById(postId);
@@ -162,7 +166,7 @@ app.post("/delete/:id", isAuthenticated, (req, res) => {
 
   if (user.username == post.username) {
     posts = posts.filter((post) => post.id != postId);
-    res.status(200);
+    res.status(200).send("Post deleted");
   } else {
     res.status(401).send("Unauthorized to delete post");
   }
@@ -240,13 +244,12 @@ function addUser(username) {
     avatar_url: undefined,
     memberSince: new Date().toISOString(),
   });
-  console.log(users);
 }
 
 // Middleware to check if user is authenticated
 function isAuthenticated(req, res, next) {
   if (req.session.userId) {
-    next();
+    return next();
   } else {
     res.redirect("/login");
   }
@@ -282,15 +285,14 @@ function loginUser(req, res) {
 // Function to logout a user
 function logoutUser(req, res) {
   // TODO: Destroy session and redirect appropriately
-  req.sesssion.destroy((err) => {
-    if (error) {
+  req.session.destroy((err) => {
+    if (err) {
       console.error("Error destroying session: ", err);
       res.redirect("/error");
     } else {
-      res.redirect("/");
+      res.redirect("/login");
     }
   });
-  res.redirect("/login");
 }
 
 // Function to render the profile page

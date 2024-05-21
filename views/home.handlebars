@@ -63,9 +63,18 @@ function toggleEmojiPanel() {
     const container = document.getElementById('emoji-container');
     container.style.display = container.style.display === 'none' ? 'block' : 'none';
 
-
     if(container.style.display === 'block' && allEmojis.length == 0){
-        // go "Fetch" you some emojis and show them off with displayEmojies
+        fetch('https://emoji-api.com/emojis?access_key=cd127ddcce669d990d7fdbfe8c71082b63ed7cd2')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Emojis fetched:', data);
+                allEmojis = data;
+                displayEmojis(allEmojis);
+            })
+            .catch(error => {
+                console.error('Error fetching emojis:', error);
+                container.textContent = 'Error fetching emojis. Try again later.';
+            })
     }
 }
 
@@ -91,7 +100,7 @@ function searchEmojis() {
     // array.filter takes a predicate
     // use string.includes. 
 
-    const filteredEmojis = allEmojis.filter(...);
+    {{!-- const filteredEmojis = allEmojis.filter(...); --}}
     
     displayEmojis(filteredEmojis);
 }
