@@ -13,6 +13,15 @@ const PORT = 3000;
 
 dotenv.config();
 
+const sqlite3 = require("sqlite3").verbose();
+
+const db  = new sqlite3.Database("database.db", sqlite3.OPEN_READWRITE, (err) => {
+  if (err) {
+    console.error(err.message);
+  }
+  console.log("Connected to the database.");
+});
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Handlebars Helpers
@@ -41,6 +50,7 @@ dotenv.config();
 
 // Set up Handlebars view engine with custom helpers
 //
+
 app.engine(
   "handlebars",
   expressHandlebars.engine({
@@ -114,6 +124,7 @@ app.get("/register", (req, res) => {
 // Login route GET route is used for error response from login
 //
 app.get("/login", (req, res) => {
+  // res.render("https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=739559669034-08mgip9om96s9bk6ggokmjsk6rftbaag.apps.googleusercontent.com&redirect_uri=http://localhost:3000/auth/google/callback&scope=https://www.googleapis.com/auth/userinfo.email");
   res.render("loginRegister", { loginError: req.query.error });
 });
 
@@ -182,9 +193,16 @@ app.post("/delete/:id", (req, res) => {
 // Server Activation
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+(async () => {
+  try {
+    const db = await connectToDatabase();
+    app.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to connect to the database:", error);
+  }
+})();
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Support Functions and Variables
@@ -386,4 +404,17 @@ function generateAvatar(letter, width = 100, height = 100) {
   ctx.fillText(letter, width / 2, height / 2);
 
   return canvas.toBuffer('image/png');
+}
+
+async function connectToDatabase() {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database("database.db", sqlite3.OPEN_READWRITE, (err) => {
+      if (err) {
+        reject(err);
+      } else {
+        console.log("Connected to the database.");
+        resolve(db);
+      }
+    });
+  });
 }

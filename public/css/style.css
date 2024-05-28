@@ -91,6 +91,8 @@ footer p {
     font-size: 0.9rem;
 }
 
+/* --------------------- POSTS --------------------- */
+
 .post {
     display: flex;
     align-items: flex-start;
