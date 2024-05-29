@@ -1,8 +1,12 @@
 const express = require("express");
 const expressHandlebars = require("express-handlebars");
 const session = require("express-session");
-const {createCanvas} = require("canvas");
+const { createCanvas } = require("canvas");
 const dotenv = require("dotenv");
+const sqlite = require("sqlite");
+const sqlite3 = require("sqlite3");
+const initializeDB = require("./db/populatedb");
+const showDatabaseContents = require("./db/showdb");
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Configuration and Setup
@@ -10,17 +14,10 @@ const dotenv = require("dotenv");
 
 const app = express();
 const PORT = 3000;
+const dbFileName = "database.db";
+let db;
 
 dotenv.config();
-
-const sqlite3 = require("sqlite3").verbose();
-
-const db  = new sqlite3.Database("database.db", sqlite3.OPEN_READWRITE, (err) => {
-  if (err) {
-    console.error(err.message);
-  }
-  console.log("Connected to the database.");
-});
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -93,7 +90,7 @@ app.use((req, res, next) => {
   res.locals.postNeoType = "Post";
   res.locals.loggedIn = req.session.loggedIn || false; // res.locals allows these variables to be used in templates
   res.locals.userId = req.session.userId || "";
-  res.locals.accessToken = process.env.ACCESS_TOKEN
+  res.locals.accessToken = process.env.ACCESS_TOKEN;
   next();
 });
 
@@ -109,10 +106,11 @@ app.use(express.json()); // Parse JSON bodies (as sent by API clients)
 // We pass the posts and user variables into the home
 // template
 //
-app.get("/", (req, res) => {
-  const posts = getPosts();
-  const user = getCurrentUser(req) || {};
-  res.render("home", { posts, user });
+app.get("/", async (req, res) => {
+  const posts = await getPosts();
+  console.log(posts)
+  // const user = getCurrentUser(req) || {};
+  res.render("home", { posts });
 });
 
 // Register GET route is used for error response from registration
@@ -124,7 +122,6 @@ app.get("/register", (req, res) => {
 // Login route GET route is used for error response from login
 //
 app.get("/login", (req, res) => {
-  // res.render("https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=739559669034-08mgip9om96s9bk6ggokmjsk6rftbaag.apps.googleusercontent.com&redirect_uri=http://localhost:3000/auth/google/callback&scope=https://www.googleapis.com/auth/userinfo.email");
   res.render("loginRegister", { loginError: req.query.error });
 });
 
@@ -193,54 +190,19 @@ app.post("/delete/:id", (req, res) => {
 // Server Activation
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-(async () => {
-  try {
-    const db = await connectToDatabase();
+connectDB()
+  .then(() => {
     app.listen(PORT, () => {
       console.log(`Server is running on http://localhost:${PORT}`);
     });
-  } catch (error) {
-    console.error("Failed to connect to the database:", error);
-  }
-})();
+  })
+  .catch((err) => {
+    console.error("Error connecting to database:", err);
+  });
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Support Functions and Variables
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-// Example data for posts and users
-let posts = [
-  {
-    id: 1,
-    title: "Sample Post",
-    content: "This is a sample post.",
-    username: "SampleUser",
-    timestamp: "2024-01-01 10:00",
-    likes: 0,
-  },
-  {
-    id: 2,
-    title: "Another Post",
-    content: "This is another sample post.",
-    username: "AnotherUser",
-    timestamp: "2024-01-02 12:00",
-    likes: 0,
-  },
-];
-let users = [
-  {
-    id: 1,
-    username: "SampleUser",
-    avatar_url: undefined,
-    memberSince: "2024-01-01 08:00",
-  },
-  {
-    id: 2,
-    username: "AnotherUser",
-    avatar_url: undefined,
-    memberSince: "2024-01-02 09:00",
-  },
-];
 
 // Function to find a user by username
 function findUserByUsername(username) {
@@ -361,8 +323,10 @@ function getCurrentUser(req) {
 }
 
 // Function to get all posts, sorted by latest first
-function getPosts() {
-  return posts.slice().reverse();
+async function getPosts() {
+  // return posts.slice().reverse();
+  const posts = await db.all("SELECT * FROM posts");
+  return posts;
 }
 
 // Function to add a new post
@@ -389,32 +353,23 @@ function generateAvatar(letter, width = 100, height = 100) {
   // 5. Return the avatar as a PNG buffer
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
-  
-  const backgroundColor = '#3498db';
-  const textColor = '#ffffff';
+
+  const backgroundColor = "#3498db";
+  const textColor = "#ffffff";
 
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, width, height);
 
   ctx.fillStyle = textColor;
   ctx.font = `${Math.floor(height * 0.7)}px sans-serif`; // Dynamic font size based on canvas height
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
 
   ctx.fillText(letter, width / 2, height / 2);
 
-  return canvas.toBuffer('image/png');
+  return canvas.toBuffer("image/png");
 }
 
-async function connectToDatabase() {
-  return new Promise((resolve, reject) => {
-    const db = new sqlite3.Database("database.db", sqlite3.OPEN_READWRITE, (err) => {
-      if (err) {
-        reject(err);
-      } else {
-        console.log("Connected to the database.");
-        resolve(db);
-      }
-    });
-  });
+async function connectDB() {
+  db = await sqlite.open({ filename: dbFileName, driver: sqlite3.Database });
 }
