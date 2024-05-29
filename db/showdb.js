@@ -34,7 +34,7 @@ async function showDatabaseContents() {
         if (posts.length > 0) {
             console.log('Posts:');
             posts.forEach(post => {
-                console.log(post);
+                // console.log(post);
             });
         } else {
             console.log('No posts found.');

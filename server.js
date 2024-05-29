@@ -2,6 +2,7 @@ const express = require("express");
 const expressHandlebars = require("express-handlebars");
 const session = require("express-session");
 const { createCanvas } = require("canvas");
+const fs = require("fs")
 const dotenv = require("dotenv");
 const sqlite = require("sqlite");
 const sqlite3 = require("sqlite3");
@@ -12,12 +13,12 @@ const showDatabaseContents = require("./db/showdb");
 // Configuration and Setup
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+dotenv.config();
+
 const app = express();
 const PORT = 3000;
 const dbFileName = "database.db";
 let db;
-
-dotenv.config();
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -105,81 +106,66 @@ app.use(express.json()); // Parse JSON bodies (as sent by API clients)
 // Home route: render home view with posts and user
 // We pass the posts and user variables into the home
 // template
-//
 app.get("/", async (req, res) => {
   const posts = await getPosts();
-  console.log(posts)
-  // const user = getCurrentUser(req) || {};
-  res.render("home", { posts });
+  const users = getCurrentUser(req) || {};
+  res.render("home", { posts, users });
 });
 
 // Register GET route is used for error response from registration
-//
 app.get("/register", (req, res) => {
   res.render("loginRegister", { regError: req.query.error });
 });
 
 // Login route GET route is used for error response from login
-//
 app.get("/login", (req, res) => {
   res.render("loginRegister", { loginError: req.query.error });
 });
 
 // Error route: render error page
-//
 app.get("/error", (req, res) => {
   res.render("error");
 });
 
-// Additional routes that you must implement
-
-app.post("/posts", (req, res) => {
-  // TODO: Add a new post and redirect to home
+app.post("/posts", async (req, res) => {
   const title = req.body.title;
   const content = req.body.content;
-  const user = getCurrentUser(req);
+  const user = await getCurrentUser(req);
 
-  addPost(title, content, user);
+  await addPost(title, content, user);
   res.redirect("/");
 });
 app.post("/like/:id", (req, res) => {
-  // TODO: Update post likes
   updatePostLikes(req, res);
 });
 app.get("/profile", isAuthenticated, (req, res) => {
-  // TODO: Render profile page
   renderProfile(req, res);
 });
 app.get("/avatar/:username", (req, res) => {
-  // TODO: Serve the avatar image for the user
   handleAvatar(req, res);
 });
 app.post("/register", (req, res) => {
-  // TODO: Register a new user
   registerUser(req, res);
 });
 app.post("/login", (req, res) => {
-  // TODO: Login a user
   loginUser(req, res);
 });
 app.get("/logout", (req, res) => {
-  // TODO: Logout the user
   logoutUser(req, res);
 });
-app.post("/delete/:id", (req, res) => {
-  // TODO: Delete a post if the current user is the owner
+app.post("/delete/:id", async (req, res) => { // colon in :id allows access to the id in the req.params
   if (!req.session.loggedIn) {
     res.status(401).send("Login required to delete posts");
     return;
   }
 
   const postId = req.params.id;
-  const post = findPostById(postId);
+  const post = await findPostById(postId);
   const userId = req.session.userId;
-  const user = findUserById(userId);
+  const user = await findUserById(userId);
 
   if (user.username == post.username) {
-    posts = posts.filter((post) => post.id != postId);
+    await db.run("DELETE FROM posts WHERE id = ?", postId);
     res.status(200).send("Post deleted");
   } else {
     res.status(401).send("Unauthorized to delete post");
@@ -190,45 +176,71 @@ app.post("/delete/:id", (req, res) => {
 // Server Activation
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-connectDB()
-  .then(() => {
+(async () => {
+  try {
+    await initializeDB();
+    await connectDB();
     app.listen(PORT, () => {
       console.log(`Server is running on http://localhost:${PORT}`);
     });
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error("Error connecting to database:", err);
-  });
+  }
+})();
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Support Functions and Variables
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // Function to find a user by username
-function findUserByUsername(username) {
-  // TODO: Return user object if found, otherwise return undefined
-  return users.find((user) => user.username == username);
+async function findUserByUsername(username) {
+  try {
+    const user = await db.get(
+      "SELECT * FROM users WHERE username = ?",
+      username
+    );
+    return user;
+  } catch (error) {
+    console.error("Error finding user by username: ", error);
+    return undefined;
+  }
 }
 
 // Function to find a user by user ID
-function findUserById(userId) {
-  // TODO: Return user object if found, otherwise return undefined
-  return users.find((user) => user.id == userId);
+async function findUserById(userId) {
+  try {
+    const user = await db.get("SELECT * FROM users WHERE id = ?", userId);
+    return user;
+  } catch (error) {
+    console.error("Error finding user by ID: ", error);
+    return undefined;
+  }
 }
 
-function findPostById(postId) {
-  return posts.find((post) => post.id == postId);
+async function findPostById(postId) {
+  try {
+    const post = await db.get("SELECT * FROM posts WHERE id = ?", postId);
+    return post;
+  } catch (error) {
+    console.error("Error finding post by ID: ", error);
+    return undefined;
+  }
 }
 
 // Function to add a new user
-function addUser(username) {
-  // TODO: Create a new user object and add to users array
-  users.push({
-    id: users.length + 1,
-    username: username,
-    avatar_url: undefined,
-    memberSince: new Date().toISOString(),
-  });
+async function addUser(username) {
+  try {
+    await db.run(
+      "INSERT INTO users (username, hashedGoogleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)",
+      username,
+      "hashedGoogleId4523",
+      "",
+      new Date().toISOString()
+    );
+    showDatabaseContents();
+  } catch (error) {
+    console.error("Error adding user: ", error);
+  }
 }
 
 // Middleware to check if user is authenticated
@@ -241,22 +253,27 @@ function isAuthenticated(req, res, next) {
 }
 
 // Function to register a user
-function registerUser(req, res) {
-  // TODO: Register a new user and redirect appropriately
+async function registerUser(req, res) {
   const username = req.body.username;
-  if (findUserByUsername(username)) {
-    res.redirect("/register?error=Username+already+exists");
-  } else {
-    addUser(username);
-    res.redirect("/login");
+
+  try {
+    const user = await findUserByUsername(username);
+    if (user) {
+      res.redirect("/register?error=Username+already+exists");
+    } else {
+      await addUser(username);
+      res.redirect("/login");
+    }
+  } catch (error) {
+    console.error("Error registering user: ", error);
+    res.redirect("/error");
   }
 }
 
 // Function to login a user
-function loginUser(req, res) {
-  // TODO: Login a user and redirect appropriately
+async function loginUser(req, res) {
   const username = req.body.username;
-  const user = findUserByUsername(username);
+  const user = await findUserByUsername(username);
 
   if (user) {
     req.session.userId = user.id;
@@ -269,7 +286,6 @@ function loginUser(req, res) {
 
 // Function to logout a user
 function logoutUser(req, res) {
-  // TODO: Destroy session and redirect appropriately
   req.session.destroy((err) => {
     if (err) {
       console.error("Error destroying session: ", err);
@@ -282,30 +298,27 @@ function logoutUser(req, res) {
 
 // Function to render the profile page
 function renderProfile(req, res) {
-  // TODO: Fetch user posts and render the profile page
   const user = getCurrentUser(req);
   const userPosts = posts.filter((post) => post.username == user.username);
   res.render("profile", { user, userPosts });
 }
 
 // Function to update post likes
-function updatePostLikes(req, res) {
-  // TODO: Increment post likes if conditions are met
+async function updatePostLikes(req, res) {
   if (!req.session.loggedIn) {
     res.status(401).send("Login required to like posts");
     return;
   }
 
   const postId = req.params.id;
-  const post = findPostById(postId);
+  const post = await findPostById(postId);
 
-  post.likes++;
+  db.run("UPDATE posts SET likes = likes + 1 WHERE id = ?", postId);
   res.status(200).json({ postLikes: post.likes });
 }
 
 // Function to handle avatar generation and serving
 function handleAvatar(req, res) {
-  // TODO: Generate and serve the user's avatar image
   const username = req.params.username;
   const user = findUserByUsername(username);
 
@@ -316,30 +329,28 @@ function handleAvatar(req, res) {
 }
 
 // Function to get the current user from session
-function getCurrentUser(req) {
-  // TODO: Return the user object if the session user ID matches
+async function getCurrentUser(req) {
   const userId = req.session.userId;
-  return findUserById(userId);
+  const user = await findUserById(userId);
+  return user
 }
 
 // Function to get all posts, sorted by latest first
 async function getPosts() {
-  // return posts.slice().reverse();
   const posts = await db.all("SELECT * FROM posts");
   return posts;
 }
 
 // Function to add a new post
-function addPost(title, content, user) {
-  // TODO: Create a new post object and add to posts array
-  posts.push({
-    id: posts.length + 1,
-    title: title,
-    content: content,
-    username: user.username,
-    timestamp: new Date().toISOString(),
-    likes: 0,
-  });
+async function addPost(title, content, user) {
+  await db.run(
+    "INSERT INTO posts (title, content, username, timestamp, likes) VALUES (?, ?, ?, ?, ?)",
+    title,
+    content,
+    user.username,
+    new Date().toISOString(),
+    0
+  );
 }
 
 // Function to generate an image avatar
