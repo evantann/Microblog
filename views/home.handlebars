@@ -2,6 +2,7 @@
 {{!< main }}
 
 {{! New Post Submission Form }}
+
 <section class="content-container">
     {{#if loggedIn}}
         <!-- show the create post form when logged in -->
@@ -31,6 +32,14 @@
 
     <section class="posts-list">
         <!-- recent posts -->
+
+        <div class="filter-container">
+            <label for="filter">Filter by:</label>
+            <select id="filter-select">
+                <option value="likes">Likes</option>
+                <option value="timestamp">Most Recent</option>
+            </select>
+        </div>
 
         {{#if posts.length}}
         <ul>
@@ -109,5 +118,13 @@ function insertEmoji(emoji) {
     textarea.value = newContent;
     textarea.focus();  // Keep focus on the textarea
 }
-</script>
 
+document.getElementById("filter-select").addEventListener("change", async function() {
+    const filter = this.value;
+    const response = await fetch(`/filterPosts?sort=${filter}`);
+    console.log(response)
+    const data = await response.json();
+    console.log(data)
+});
+
+</script>

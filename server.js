@@ -2,12 +2,16 @@ const express = require("express");
 const expressHandlebars = require("express-handlebars");
 const session = require("express-session");
 const { createCanvas } = require("canvas");
-const fs = require("fs")
+const fs = require("fs");
 const dotenv = require("dotenv");
 const sqlite = require("sqlite");
 const sqlite3 = require("sqlite3");
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const bcrypt = require("bcrypt");
 const initializeDB = require("./db/populatedb");
 const showDatabaseContents = require("./db/showdb");
+const { log } = require("console");
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Configuration and Setup
@@ -17,7 +21,11 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
 const dbFileName = "database.db";
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
+
 let db;
 
 /*
@@ -81,6 +89,52 @@ app.use(
     cookie: { secure: false }, // True if using https. Set to false for development without https
   })
 );
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: CLIENT_ID,
+      clientSecret: CLIENT_SECRET,
+      callbackURL: `http://localhost:${PORT}/auth/google/callback`,
+    },
+    async (token, tokenSecret, profile, done) => {
+      try {
+        const googleId = profile.id;
+        const hashedGoogleId = await bcrypt.hash(googleId, 10);
+        const user = await db.get(
+          "SELECT * FROM users WHERE hashedGoogleId = ?",
+          hashedGoogleId
+        );
+        if (user) {
+          return done(null, user);
+        } else {
+          return done(null, { googleId: hashedGoogleId, profile });
+        }
+      } catch (error) {
+        return done(error, false);
+      }
+    }
+  )
+);
+
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((obj, done) => {
+  done(null, obj);
+});
+
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((obj, done) => {
+  done(null, obj);
+});
 
 // Replace any of these variables below with constants for your application. These variables
 // should be used in your template files.
@@ -153,7 +207,8 @@ app.post("/login", (req, res) => {
 app.get("/logout", (req, res) => {
   logoutUser(req, res);
 });
-app.post("/delete/:id", async (req, res) => { // colon in :id allows access to the id in the req.params
+app.post("/delete/:id", async (req, res) => {
+  // colon in :id allows access to the id in the req.params
   if (!req.session.loggedIn) {
     res.status(401).send("Login required to delete posts");
     return;
@@ -171,22 +226,90 @@ app.post("/delete/:id", async (req, res) => { // colon in :id allows access to t
     res.status(401).send("Unauthorized to delete post");
   }
 });
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Server Activation
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-(async () => {
-  try {
-    await initializeDB();
-    await connectDB();
-    app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-    });
-  } catch (err) {
-    console.error("Error connecting to database:", err);
+app.get(
+  "/auth/google",
+  passport.authenticate("google", { scope: ["profile"] })
+);
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/auth/google/failure" }),
+  async (req, res) => {
+    if (req.user && req.user.id) {
+      req.session.userId = req.user.id;
+      req.session.loggedIn = true;
+      res.redirect("/");
+    } else {
+      req.session.tempGoogleId = req.user.googleId; // Store the hashed Google ID temporarily
+      req.session.tempProfile = req.user.profile; // Store the profile temporarily
+      res.redirect("/registerUsername");
+    }
   }
-})();
+);
+
+app.get("/registerUsername", (req, res) => {
+  res.render("registerUsername", { profile: req.session.tempProfile });
+});
+
+app.post("/registerUsername", async (req, res) => {
+  const username = req.body.username;
+  const hashedGoogleId = req.session.tempGoogleId;
+
+  try {
+    const user = await findUserByUsername(username);
+    if (user) {
+      res.redirect("/registerUsername?error=Username+already+exists");
+    } else {
+      await db.run(
+        "INSERT INTO users (username, hashedGoogleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)",
+        username,
+        hashedGoogleId,
+        "",
+        new Date().toISOString()
+      );
+      const newUser = await findUserByUsername(username);
+      req.session.userId = newUser.id;
+      req.session.loggedIn = true;
+      res.redirect("/");
+    }
+  } catch (error) {
+    console.error("Error registering user:", error);
+    res.redirect("/error");
+  }
+});
+app.get("/googleLogout", (req, res) => {
+  res.render("googleLogout");
+});
+app.get("/filterPosts", async (req, res) => {
+  try {
+    sort_method = req.query.sort;
+    const posts = await db.all(
+      `SELECT * FROM posts ORDER BY ${sort_method} DESC`
+    );
+    // res.render("home", { posts });
+    res.json(posts);
+    console.log("Posts filtered successfully")
+  } catch (error) {
+    console.error("Error filtering posts:", error);
+    res.redirect("/error"); // Redirect to error page if an error occurs
+  }
+});
+
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // Server Activation
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  (async () => {
+    try {
+      await initializeDB();
+      await connectDB();
+      app.listen(PORT, () => {
+        console.log(`Server is running on http://localhost:${PORT}`);
+      });
+    } catch (err) {
+      console.error("Error connecting to database:", err);
+    }
+  }
+)();
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Support Functions and Variables
@@ -202,7 +325,6 @@ async function findUserByUsername(username) {
     return user;
   } catch (error) {
     console.error("Error finding user by username: ", error);
-    return undefined;
   }
 }
 
@@ -233,7 +355,7 @@ async function addUser(username) {
     await db.run(
       "INSERT INTO users (username, hashedGoogleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)",
       username,
-      "hashedGoogleId4523",
+      "hashedGoogleId451223",
       "",
       new Date().toISOString()
     );
@@ -291,15 +413,18 @@ function logoutUser(req, res) {
       console.error("Error destroying session: ", err);
       res.redirect("/error");
     } else {
-      res.redirect("/login");
+      res.redirect("/googleLogout");
     }
   });
 }
 
 // Function to render the profile page
-function renderProfile(req, res) {
-  const user = getCurrentUser(req);
-  const userPosts = posts.filter((post) => post.username == user.username);
+async function renderProfile(req, res) {
+  const user = await getCurrentUser(req);
+  const userPosts = await db.all(
+    "SELECT * FROM posts WHERE username = ?",
+    user.username
+  );
   res.render("profile", { user, userPosts });
 }
 
@@ -318,13 +443,11 @@ async function updatePostLikes(req, res) {
 }
 
 // Function to handle avatar generation and serving
-function handleAvatar(req, res) {
+async function handleAvatar(req, res) {
   const username = req.params.username;
-  const user = findUserByUsername(username);
 
-  avatarUrl = generateAvatar(user.username[0]);
-  user.avatar_url = avatarUrl;
-
+  avatarUrl = generateAvatar(username[0]);
+  await db.run("UPDATE users SET avatar_url = ? WHERE username = ?", avatarUrl, username);
   res.send(avatarUrl);
 }
 
@@ -332,7 +455,7 @@ function handleAvatar(req, res) {
 async function getCurrentUser(req) {
   const userId = req.session.userId;
   const user = await findUserById(userId);
-  return user
+  return user;
 }
 
 // Function to get all posts, sorted by latest first
@@ -354,7 +477,7 @@ async function addPost(title, content, user) {
 }
 
 // Function to generate an image avatar
-function generateAvatar(letter, width = 100, height = 100) {
+function generateAvatar(letter, width = 100, height = 100, req) {
   // TODO: Generate an avatar image with a letter
   // Steps:
   // 1. Choose a color scheme based on the letter
@@ -378,9 +501,21 @@ function generateAvatar(letter, width = 100, height = 100) {
 
   ctx.fillText(letter, width / 2, height / 2);
 
-  return canvas.toBuffer("image/png");
+  const buffer = canvas.toBuffer("image/png");
+
+  fs.writeFileSync(`./public/avatars/asdf.png`, buffer);
+
+  return buffer
 }
 
 async function connectDB() {
   db = await sqlite.open({ filename: dbFileName, driver: sqlite3.Database });
 }
+
+// TODO
+// 1. avatar file
+// 2. isauth middleware
+// 3. database.js in db folder
+// 4. database id increment
+// 5. page specific styling
+// 6. when to initialize db
