@@ -2,7 +2,7 @@ const sqlite = require('sqlite');
 const sqlite3 = require('sqlite3');
 
 // Placeholder for the database file name
-const dbFileName = 'database.db';
+const dbFileName = './db/database.db';
 
 async function showDatabaseContents() {
     const db = await sqlite.open({ filename: dbFileName, driver: sqlite3.Database });
@@ -34,7 +34,7 @@ async function showDatabaseContents() {
         if (posts.length > 0) {
             console.log('Posts:');
             posts.forEach(post => {
-                // console.log(post);
+                console.log(post);
             });
         } else {
             console.log('No posts found.');

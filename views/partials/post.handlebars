@@ -2,14 +2,15 @@
 <div class="post">
     <div class="post-avatar">
         <!-- the user's avatar -->
-        <img src="/avatars/asdf.png" alt="User Avatar">
+        <img src="/avatar/{{username}}" alt="User Avatar">
     </div>
     <div class="post-content preserve-newlines">
         <!-- the post -->
         <p><b>{{username}}</b></p>
         <p>Title: {{title}}</p>
         <p>{{content}}</p>
-        {{#if post.video}}
+        <p>Posted by: {{user.username}}</p>
+        {{#if video}}
             <video class="aspect-video w-full">
                 Your browser does not support the video tag.
             </video>

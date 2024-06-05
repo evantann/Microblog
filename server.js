@@ -18,7 +18,7 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-const dbFileName = "database.db";
+const dbFileName = "./db/database.db";
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 
@@ -100,7 +100,7 @@ passport.use(
       try {
         const googleId = profile.id;
         const user = await db.get(
-          "SELECT * FROM users WHERE hashedGoogleId = ?",
+          "SELECT * FROM users WHERE googleId = ?",
           googleId
         );
         if (user) {
@@ -150,8 +150,8 @@ app.use(express.json()); // Parse JSON bodies (as sent by API clients)
 
 app.get("/", async (req, res) => {
   const posts = await getPosts();
-  const users = await getCurrentUser(req) || {};
-  res.render("home", { posts, users });
+  const user = await getCurrentUser(req) || {};
+  res.render("home", { posts, user });
 });
 
 // Register GET route is used for error response from registration
@@ -319,11 +319,12 @@ async function findPostById(postId) {
 // Function to add a new user
 async function addUser(username, googleId) {
   try {
+    const avatarUrl = generateAvatar(username[0], googleId);
     await db.run(
-      "INSERT INTO users (username, hashedGoogleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)",
+      "INSERT INTO users (username, googleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)",
       username,
       googleId,
-      "",
+      avatarUrl,
       new Date().toISOString()
     );
   } catch (error) {
@@ -393,9 +394,7 @@ async function updatePostLikes(req, res) {
 // Function to handle avatar generation and serving
 async function handleAvatar(req, res) {
   const username = req.params.username;
-
   avatarUrl = generateAvatar(username[0]);
-  await db.run("UPDATE users SET avatar_url = ? WHERE username = ?", avatarUrl, username);
   res.send(avatarUrl);
 }
 
@@ -425,7 +424,10 @@ async function addPost(title, content, user) {
 }
 
 // Function to generate an image avatar
-function generateAvatar(letter, width = 100, height = 100, req) {
+function generateAvatar(letter, googleId) {
+
+  width = 100;
+  height = 100;
   // TODO: Generate an avatar image with a letter
   // Steps:
   // 1. Choose a color scheme based on the letter
@@ -451,17 +453,17 @@ function generateAvatar(letter, width = 100, height = 100, req) {
 
   const buffer = canvas.toBuffer("image/png");
 
-  fs.writeFileSync(`./public/avatars/asdf.png`, buffer);
+  filePath = './public'
+  avatarUrl = `/avatars/${googleId}.png`
+  fs.writeFileSync(filePath + avatarUrl, buffer);
 
-  return buffer
+  return avatarUrl;
 }
 
 async function connectDB() {
   db = await sqlite.open({ filename: dbFileName, driver: sqlite3.Database });
 }
 // TODO
-// 1. avatar file
-// 2. isauth middleware
-// 3. database.js in db folder
-// 4. database id increment
-// 6. when to initialize db
+// 1. isauth middleware
+// 2. avatar, filter likes, css, new features, 
+// 3. learn about passport.js, sessions, middleware, handlebars

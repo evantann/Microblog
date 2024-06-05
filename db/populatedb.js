@@ -2,7 +2,7 @@ const sqlite = require('sqlite');
 const sqlite3 = require('sqlite3');
 
 // Placeholder for the database file name
-const dbFileName = 'database.db';
+const dbFileName = './db/database.db';
 
 async function initializeDB() {
     const db = await sqlite.open({ filename: dbFileName, driver: sqlite3.Database });
@@ -11,25 +11,26 @@ async function initializeDB() {
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL UNIQUE,
-            hashedGoogleId TEXT NOT NULL UNIQUE,
-            avatar_url TEXT,
+            googleId TEXT NOT NULL UNIQUE,
+            avatar_url TEXT NOT NULL,
             memberSince DATETIME NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
-            content TEXT NOT NULL,ƒinsert
+            content TEXT NOT NULL,
             username TEXT NOT NULL,
             timestamp DATETIME NOT NULL,
-            likes INTEGER NOT NULL
+            likes INTEGER NOT NULL,
+            video_url TEXT
         );
     `);
 
     // Sample data - Replace these arrays with your own data
     const users = [
-        { username: 'user1', hashedGoogleId: 'hashedGoogleId1', avatar_url: '', memberSince: '2024-01-01 12:00:00' },
-        { username: 'user2', hashedGoogleId: 'hashedGoogleId2', avatar_url: '', memberSince: '2024-01-02 12:00:00' }
+        { username: 'user1', googleId: 'googleId1', avatar_url: '', memberSince: '2024-01-01 12:00:00' },
+        { username: 'user2', googleId: 'googleId2', avatar_url: '', memberSince: '2024-01-02 12:00:00' }
     ];
 
     const posts = [
@@ -40,14 +41,14 @@ async function initializeDB() {
     // Insert sample data into the database
     await Promise.all(users.map(user => {
         return db.run(
-            'INSERT OR IGNORE INTO users (username, hashedGoogleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)',
-            [user.username, user.hashedGoogleId, user.avatar_url, user.memberSince]
+            'INSERT INTO users (username, googleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)',
+            [user.username, user.googleId, user.avatar_url, user.memberSince]
         );
     }));
 
     await Promise.all(posts.map(post => {
         return db.run(
-            'INSERT OR IGNORE INTO posts (title, content, username, timestamp, likes) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO posts (title, content, username, timestamp, likes) VALUES (?, ?, ?, ?, ?)',
             [post.title, post.content, post.username, post.timestamp, post.likes]
         );
     }));
@@ -56,8 +57,8 @@ async function initializeDB() {
     await db.close();
 }
 
-// initializeDB().catch(err => {
-//     console.error('Error initializing database:', err);
-// });
+initializeDB().catch(err => {
+    console.error('Error initializing database:', err);
+});
 
 module.exports = initializeDB;
