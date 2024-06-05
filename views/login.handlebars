@@ -1,0 +1,20 @@
+{{! Use the main layout }}
+{{!< main }}
+
+<section class = "login-area">
+    <h2>Login</h2>
+    <!-- errors will appear here -->
+    {{#if loginError}}
+        <p style="color: red;">{{loginError}}</p>
+    {{/if}}
+    <button class="loginButton">Login using your Google account.</button>
+</section>
+
+<script>
+    loginButton = document.querySelector('.loginButton');
+    loginButton.addEventListener('click', handleLoginClick);
+
+    function handleLoginClick() {
+        window.location.href = '/auth/google';
+    }
+</script>

@@ -46,8 +46,8 @@ async function showDatabaseContents() {
     await db.close();
 }
 
-// showDatabaseContents().catch(err => {
-//     console.error('Error showing database contents:', err);
-// });
+showDatabaseContents().catch(err => {
+    console.error('Error showing database contents:', err);
+});
 
 module.exports = showDatabaseContents;

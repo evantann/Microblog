@@ -8,10 +8,6 @@ const sqlite = require("sqlite");
 const sqlite3 = require("sqlite3");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const bcrypt = require("bcrypt");
-const initializeDB = require("./db/populatedb");
-const showDatabaseContents = require("./db/showdb");
-const { log } = require("console");
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Configuration and Setup
@@ -103,15 +99,14 @@ passport.use(
     async (token, tokenSecret, profile, done) => {
       try {
         const googleId = profile.id;
-        const hashedGoogleId = await bcrypt.hash(googleId, 10);
         const user = await db.get(
           "SELECT * FROM users WHERE hashedGoogleId = ?",
-          hashedGoogleId
+          googleId
         );
         if (user) {
-          return done(null, user);
+          return done(null, user); // in passport.js, if a user is authenticated, it will be stored in req.user (whether it be user or googleId)
         } else {
-          return done(null, { googleId: hashedGoogleId, profile });
+          return done(null, googleId);
         }
       } catch (error) {
         return done(error, false);
@@ -119,14 +114,6 @@ passport.use(
     }
   )
 );
-
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.deserializeUser((obj, done) => {
-  done(null, obj);
-});
 
 passport.serializeUser((user, done) => {
   done(null, user);
@@ -160,20 +147,21 @@ app.use(express.json()); // Parse JSON bodies (as sent by API clients)
 // Home route: render home view with posts and user
 // We pass the posts and user variables into the home
 // template
+
 app.get("/", async (req, res) => {
   const posts = await getPosts();
-  const users = getCurrentUser(req) || {};
+  const users = await getCurrentUser(req) || {};
   res.render("home", { posts, users });
 });
 
 // Register GET route is used for error response from registration
 app.get("/register", (req, res) => {
-  res.render("loginRegister", { regError: req.query.error });
+  res.render("registerUsername", { regError: req.query.error, googleId: req.query.id });
 });
 
 // Login route GET route is used for error response from login
 app.get("/login", (req, res) => {
-  res.render("loginRegister", { loginError: req.query.error });
+  res.render("login", { loginError: req.query.error });
 });
 
 // Error route: render error page
@@ -197,9 +185,6 @@ app.get("/profile", isAuthenticated, (req, res) => {
 });
 app.get("/avatar/:username", (req, res) => {
   handleAvatar(req, res);
-});
-app.post("/register", (req, res) => {
-  registerUser(req, res);
 });
 app.post("/login", (req, res) => {
   loginUser(req, res);
@@ -226,46 +211,30 @@ app.post("/delete/:id", async (req, res) => {
     res.status(401).send("Unauthorized to delete post");
   }
 });
-app.get(
-  "/auth/google",
-  passport.authenticate("google", { scope: ["profile"] })
+app.get("/auth/google", passport.authenticate("google", { scope: ["profile"] })
 );
-app.get(
-  "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/auth/google/failure" }),
+app.get("/auth/google/callback", passport.authenticate("google", { failureRedirect: "/auth/google/failure" }),
   async (req, res) => {
     if (req.user && req.user.id) {
       req.session.userId = req.user.id;
       req.session.loggedIn = true;
       res.redirect("/");
     } else {
-      req.session.tempGoogleId = req.user.googleId; // Store the hashed Google ID temporarily
-      req.session.tempProfile = req.user.profile; // Store the profile temporarily
-      res.redirect("/registerUsername");
+      res.redirect(`/register?id=${req.user}`);
     }
   }
 );
 
-app.get("/registerUsername", (req, res) => {
-  res.render("registerUsername", { profile: req.session.tempProfile });
-});
-
 app.post("/registerUsername", async (req, res) => {
   const username = req.body.username;
-  const hashedGoogleId = req.session.tempGoogleId;
+  const googleId = req.body.googleId;
 
   try {
     const user = await findUserByUsername(username);
     if (user) {
-      res.redirect("/registerUsername?error=Username+already+exists");
+      res.redirect("/register?error=Username+already+exists");
     } else {
-      await db.run(
-        "INSERT INTO users (username, hashedGoogleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)",
-        username,
-        hashedGoogleId,
-        "",
-        new Date().toISOString()
-      );
+      await addUser(username, googleId);
       const newUser = await findUserByUsername(username);
       req.session.userId = newUser.id;
       req.session.loggedIn = true;
@@ -285,9 +254,8 @@ app.get("/filterPosts", async (req, res) => {
     const posts = await db.all(
       `SELECT * FROM posts ORDER BY ${sort_method} DESC`
     );
-    // res.render("home", { posts });
+    res.render("home", { posts });
     res.json(posts);
-    console.log("Posts filtered successfully")
   } catch (error) {
     console.error("Error filtering posts:", error);
     res.redirect("/error"); // Redirect to error page if an error occurs
@@ -300,7 +268,6 @@ app.get("/filterPosts", async (req, res) => {
 
   (async () => {
     try {
-      await initializeDB();
       await connectDB();
       app.listen(PORT, () => {
         console.log(`Server is running on http://localhost:${PORT}`);
@@ -350,16 +317,15 @@ async function findPostById(postId) {
 }
 
 // Function to add a new user
-async function addUser(username) {
+async function addUser(username, googleId) {
   try {
     await db.run(
       "INSERT INTO users (username, hashedGoogleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)",
       username,
-      "hashedGoogleId451223",
+      googleId,
       "",
       new Date().toISOString()
     );
-    showDatabaseContents();
   } catch (error) {
     console.error("Error adding user: ", error);
   }
@@ -371,24 +337,6 @@ function isAuthenticated(req, res, next) {
     return next();
   } else {
     res.redirect("/login");
-  }
-}
-
-// Function to register a user
-async function registerUser(req, res) {
-  const username = req.body.username;
-
-  try {
-    const user = await findUserByUsername(username);
-    if (user) {
-      res.redirect("/register?error=Username+already+exists");
-    } else {
-      await addUser(username);
-      res.redirect("/login");
-    }
-  } catch (error) {
-    console.error("Error registering user: ", error);
-    res.redirect("/error");
   }
 }
 
@@ -511,11 +459,9 @@ function generateAvatar(letter, width = 100, height = 100, req) {
 async function connectDB() {
   db = await sqlite.open({ filename: dbFileName, driver: sqlite3.Database });
 }
-
 // TODO
 // 1. avatar file
 // 2. isauth middleware
 // 3. database.js in db folder
 // 4. database id increment
-// 5. page specific styling
 // 6. when to initialize db
