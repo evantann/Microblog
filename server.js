@@ -8,6 +8,8 @@ const sqlite = require("sqlite");
 const sqlite3 = require("sqlite3");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const multer = require("multer");
+const path = require("path");
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Configuration and Setup
@@ -23,6 +25,23 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 
 let db;
+let storage;
+
+storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = './public/uploads/videos/';
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage });
+
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -169,12 +188,13 @@ app.get("/error", (req, res) => {
   res.render("error");
 });
 
-app.post("/posts", async (req, res) => {
+app.post("/posts", upload.single('video'), async (req, res) => {
   const title = req.body.title;
   const content = req.body.content;
+  const videoUrl = req.file ? `/uploads/videos/${req.file.filename}` : null;
   const user = await getCurrentUser(req);
 
-  await addPost(title, content, user);
+  await addPost(title, content, videoUrl, user);
   res.redirect("/");
 });
 app.post("/like/:id", (req, res) => {
@@ -192,8 +212,7 @@ app.post("/login", (req, res) => {
 app.get("/logout", (req, res) => {
   logoutUser(req, res);
 });
-app.post("/delete/:id", async (req, res) => {
-  // colon in :id allows access to the id in the req.params
+app.post("/delete/:id", async (req, res) => { // colon in :id allows access to the id in the req.params
   if (!req.session.loggedIn) {
     res.status(401).send("Login required to delete posts");
     return;
@@ -255,7 +274,6 @@ app.get("/filterPosts", async (req, res) => {
       `SELECT * FROM posts ORDER BY ${sort_method} DESC`
     );
     res.render("home", { posts });
-    res.json(posts);
   } catch (error) {
     console.error("Error filtering posts:", error);
     res.redirect("/error"); // Redirect to error page if an error occurs
@@ -319,7 +337,7 @@ async function findPostById(postId) {
 // Function to add a new user
 async function addUser(username, googleId) {
   try {
-    const avatarUrl = generateAvatar(username[0], googleId);
+    const { avatarUrl, buffer } = generateAvatar(username[0], googleId);
     await db.run(
       "INSERT INTO users (username, googleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)",
       username,
@@ -394,8 +412,8 @@ async function updatePostLikes(req, res) {
 // Function to handle avatar generation and serving
 async function handleAvatar(req, res) {
   const username = req.params.username;
-  avatarUrl = generateAvatar(username[0]);
-  res.send(avatarUrl);
+  const {avatarUrl, buffer: avatar} = generateAvatar(username[0]);
+  res.send(avatar);
 }
 
 // Function to get the current user from session
@@ -412,14 +430,15 @@ async function getPosts() {
 }
 
 // Function to add a new post
-async function addPost(title, content, user) {
+async function addPost(title, content, videoUrl, user) {
   await db.run(
-    "INSERT INTO posts (title, content, username, timestamp, likes) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO posts (title, content, username, timestamp, likes, video_url) VALUES (?, ?, ?, ?, ?, ?)",
     title,
     content,
     user.username,
     new Date().toISOString(),
-    0
+    0,
+    videoUrl
   );
 }
 
@@ -453,11 +472,16 @@ function generateAvatar(letter, googleId) {
 
   const buffer = canvas.toBuffer("image/png");
 
-  filePath = './public'
-  avatarUrl = `/avatars/${googleId}.png`
+  const filePath = './public'
+  const avatarUrl = `/avatars/${googleId}.png`
+
+  if (!fs.existsSync("./public/avatars")) {
+    fs.mkdirSync("./public/avatars", { recursive: true });
+  }
+
   fs.writeFileSync(filePath + avatarUrl, buffer);
 
-  return avatarUrl;
+  return {avatarUrl, buffer};
 }
 
 async function connectDB() {
@@ -465,5 +489,7 @@ async function connectDB() {
 }
 // TODO
 // 1. isauth middleware
-// 2. avatar, filter likes, css, new features, 
-// 3. learn about passport.js, sessions, middleware, handlebars
+// 2. filter, css, new features, 
+// 3. why does "/" get route render user
+// 4. learn about passport.js, sessions, middleware, handlebars, path
+// 5. dont save file for avatar when rendering posts

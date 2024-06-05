@@ -2,25 +2,25 @@
 <div class="post">
     <div class="post-avatar">
         <!-- the user's avatar -->
-        <img src="/avatar/{{username}}" alt="User Avatar">
+        {{!-- src can take an endpoint that responds with an image --}}
+        <img src="/avatar/{{username}}" alt="User Avatar"> 
     </div>
     <div class="post-content preserve-newlines">
         <!-- the post -->
         <p><b>{{username}}</b></p>
         <p>Title: {{title}}</p>
         <p>{{content}}</p>
-        <p>Posted by: {{user.username}}</p>
-        {{#if video}}
-            <video class="aspect-video w-full">
-                Your browser does not support the video tag.
+        {{#if video_url}}
+            <video controls class="aspect-video w-full" width ="800">
+                <source src="{{video_url}}" type="video/mp4">
             </video>
         {{/if}}
         <div class="post-status-bar">
             <!-- everything that is shown in the status bar -->
             <!-- Heart = ♥ -->
             <!-- font awesome  trashcan = <i class="fas fa-trash-alt"> </i>-->
-            <button class="like-button" data-id="{{this.id}}"><span class="like-count">{{likes}}</span> ♥ Like</button>
-            <button class="delete-button" data-id="{{this.id}}">
+            <button class="like-button" data-id="{{id}}"><span class="like-count">{{likes}}</span> ♥ Like</button>
+            <button class="delete-button" data-id="{{id}}">
                 <i class="fas fa-trash-alt"></i> Delete
             </button>
         </div>        
