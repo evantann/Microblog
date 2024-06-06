@@ -21,8 +21,12 @@
             <ul>
                 <!-- conditional rendering based on variables - Is the user logged in?-->
                 {{#if loggedIn}}
+                    <form action="/search" method="get">
+                        <input type="text" name="query" placeholder="Search...">
+                        <button class="search-bar"></button>
+                    </form>
                     <li><a href="/">Home</a></li>
-                    <li><a href="/profile">Profile</a></li>
+                    <li><a href="/profile/{{user.username}}">Profile</a></li>
                     <li><a href="/logout">Logout <span>{{user.username}}</span> </a></li>
                     <div class="user-info">
                         
@@ -30,6 +34,10 @@
                         <img src={{user.avatar_url}} alt="User Avatar" class="header-avatar">
                     </div>
                 {{else}}
+                    <form action="/search" method="get">
+                        <input type="text" name="query" placeholder="Search...">
+                        <button class="search-bar"></button>
+                    </form>
                     <li><a href="/">Home</a></li>
                     <li><a href="/login">Login/Register</a></li>
                 {{/if}}

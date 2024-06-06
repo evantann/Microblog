@@ -200,14 +200,11 @@ app.post("/posts", upload.single('video'), async (req, res) => {
 app.post("/like/:id", (req, res) => {
   updatePostLikes(req, res);
 });
-app.get("/profile", isAuthenticated, (req, res) => {
+app.get("/profile/:username", (req, res) => {
   renderProfile(req, res);
 });
 app.get("/avatar/:username", (req, res) => {
   handleAvatar(req, res);
-});
-app.post("/login", (req, res) => {
-  loginUser(req, res);
 });
 app.get("/logout", (req, res) => {
   logoutUser(req, res);
@@ -279,6 +276,23 @@ app.get("/filterPosts", async (req, res) => {
     res.redirect("/error"); // Redirect to error page if an error occurs
   }
 });
+app.get("/search", async (req, res) => {
+  try {
+    const username = req.query.query
+    const profile = await db.get(
+      "SELECT * FROM users WHERE username LIKE ?",
+      `%${username}%`
+    );
+    if (profile) {
+    res.redirect(`/profile/${profile.username}`)
+    } else {
+      res.send("No user found");
+    }
+  } catch{
+    console.error("Error searching posts:", error);
+    res.redirect("/error");
+  }
+});
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Server Activation
@@ -337,7 +351,7 @@ async function findPostById(postId) {
 // Function to add a new user
 async function addUser(username, googleId) {
   try {
-    const { avatarUrl, buffer } = generateAvatar(username[0], googleId);
+    const { avatarUrl } = generateAvatar(username[0], googleId);
     await db.run(
       "INSERT INTO users (username, googleId, avatar_url, memberSince) VALUES (?, ?, ?, ?)",
       username,
@@ -359,20 +373,6 @@ function isAuthenticated(req, res, next) {
   }
 }
 
-// Function to login a user
-async function loginUser(req, res) {
-  const username = req.body.username;
-  const user = await findUserByUsername(username);
-
-  if (user) {
-    req.session.userId = user.id;
-    req.session.loggedIn = true;
-    res.redirect("/");
-  } else {
-    res.redirect("/login?error=Invalid+username");
-  }
-}
-
 // Function to logout a user
 function logoutUser(req, res) {
   req.session.destroy((err) => {
@@ -387,10 +387,13 @@ function logoutUser(req, res) {
 
 // Function to render the profile page
 async function renderProfile(req, res) {
-  const user = await getCurrentUser(req);
+  const username = req.params.username;
+  const user = await db.get(
+    "SELECT * FROM users WHERE username = ?",
+    username);
   const userPosts = await db.all(
     "SELECT * FROM posts WHERE username = ?",
-    user.username
+    username
   );
   res.render("profile", { user, userPosts });
 }
@@ -412,7 +415,7 @@ async function updatePostLikes(req, res) {
 // Function to handle avatar generation and serving
 async function handleAvatar(req, res) {
   const username = req.params.username;
-  const {avatarUrl, buffer: avatar} = generateAvatar(username[0]);
+  const { buffer: avatar} = generateAvatar(username[0]);
   res.send(avatar);
 }
 
@@ -447,7 +450,6 @@ function generateAvatar(letter, googleId) {
 
   width = 100;
   height = 100;
-  // TODO: Generate an avatar image with a letter
   // Steps:
   // 1. Choose a color scheme based on the letter
   // 2. Create a canvas with the specified width and height
@@ -488,8 +490,8 @@ async function connectDB() {
   db = await sqlite.open({ filename: dbFileName, driver: sqlite3.Database });
 }
 // TODO
-// 1. isauth middleware
-// 2. filter, css, new features, 
-// 3. why does "/" get route render user
-// 4. learn about passport.js, sessions, middleware, handlebars, path
-// 5. dont save file for avatar when rendering posts
+// 1. why does "/" get route render user
+// 2. how does main have the user property
+// 3. res.session disappears when redirected
+// 4. filter
+// 5. learn about passport.js, sessions, middleware, handlebars, path
